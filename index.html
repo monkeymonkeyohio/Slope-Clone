@@ -6,16 +6,18 @@
     <title>Slope Clone Pro</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-size: 28px; font-weight: bold; z-index: 10; text-shadow: 2px 2px #000; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-size: 32px; font-weight: bold; z-index: 10; text-shadow: 2px 2px #000; pointer-events: none; }
         #menu { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: #0f0; }
-        button { padding: 15px 40px; font-size: 20px; background: #0f0; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        button { padding: 15px 40px; font-size: 24px; background: #0f0; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 20px #0f0; transition: 0.2s; }
+        button:hover { background: #fff; transform: scale(1.1); }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: 0</div>
     <div id="menu">
-        <h1 style="font-size: 50px;">SLOPE</h1>
-        <button id="startBtn">PLAY NOW</button>
+        <h1 style="font-size: 60px; margin-bottom: 10px;">SLOPE</h1>
+        <p style="margin-bottom: 20px;">ARROWS or A/D to STEER</p>
+        <button id="startBtn">START GAME</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -23,142 +25,9 @@
     <script>
         let scene, camera, renderer, ball;
         let chunks = [], obstacles = [];
-        let score = 0, speed = 0.8, active = false;
+        let score = 0, speed = 1.0, active = false;
         let moveLeft = false, moveRight = false;
         let lastChunkZ = 0, lastChunkY = 0;
 
         function init() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.Fog(0x000000, 10, 120);
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-
-            scene.add(new THREE.AmbientLight(0x404040));
-            const light = new THREE.PointLight(0x00ff00, 1, 100);
-            light.position.set(0, 10, 0);
-            scene.add(light);
-
-            ball = new THREE.Mesh(
-                new THREE.SphereGeometry(0.5, 32, 32),
-                new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 })
-            );
-            ball.position.y = 2;
-            scene.add(ball);
-
-            // Generate initial world
-            for(let i=0; i<15; i++) { createChunk(); }
-
-            window.onkeydown = (e) => { if(e.key=="ArrowLeft" || e.key=="a") moveLeft=true; if(e.key=="ArrowRight" || e.key=="d") moveRight=true; };
-            window.onkeyup = (e) => { if(e.key=="ArrowLeft" || e.key=="a") moveLeft=false; if(e.key=="ArrowRight" || e.key=="d") moveRight=false; };
-            document.getElementById('startBtn').onclick = () => { document.getElementById('menu').style.display='none'; active=true; };
-            
-            animate();
-        }
-
-        function createChunk() {
-            const group = new THREE.Group();
-            const width = 8;
-            const length = 15;
-            
-            // Randomly decide if this chunk is a flat plane or a slanted ramp
-            const isRamp = Math.random() > 0.6;
-            const geo = new THREE.BoxGeometry(width, 1, length);
-            const mat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-            const platform = new THREE.Mesh(geo, mat);
-            
-            // Add Neon Edges
-            const edges = new THREE.EdgesGeometry(geo);
-            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ff00 }));
-            platform.add(line);
-
-            group.add(platform);
-
-            // Positioning
-            group.position.z = lastChunkZ - length;
-            // Create a gap occasionally
-            const hasGap = Math.random() > 0.8;
-            group.position.y = hasGap ? lastChunkY - 2 : lastChunkY - (Math.random() * 1.5);
-            
-            if (isRamp) {
-                group.rotation.x = -0.2; // Slant it downwards
-                group.position.y -= 1; 
-            }
-
-            // Obstacles
-            if(lastChunkZ < -50 && !hasGap) {
-                const obs = new THREE.Mesh(
-                    new THREE.BoxGeometry(1.2, 1.2, 1.2),
-                    new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 })
-                );
-                obs.position.set((Math.random() - 0.5) * 6, 1, 0);
-                group.add(obs);
-                obstacles.push(obs);
-            }
-
-            scene.add(group);
-            chunks.push(group);
-            lastChunkZ -= length;
-            lastChunkY = group.position.y;
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if(!active) return;
-
-            // Movement
-            if(moveLeft) ball.position.x -= 0.18;
-            if(moveRight) ball.position.x += 0.18;
-            ball.position.x = Math.max(Math.min(ball.position.x, 3.8), -3.8);
-            ball.rotation.x -= 0.2;
-
-            // Gravity & Grounding
-            const ray = new THREE.Raycaster(new THREE.Vector3(ball.position.x, ball.position.y + 5, ball.position.z), new THREE.Vector3(0, -1, 0));
-            const intersects = ray.intersectObjects(chunks, true);
-
-            if (intersects.length > 0) {
-                let groundY = intersects[0].point.y + 0.5;
-                ball.position.y = THREE.MathUtils.lerp(ball.position.y, groundY, 0.2);
-            } else {
-                // Falling off edge
-                ball.position.y -= 0.2;
-                if(ball.position.y < -10) resetGame();
-            }
-
-            // Move World
-            chunks.forEach((chunk, i) => {
-                chunk.position.z += speed;
-                if(chunk.position.z > 20) {
-                    scene.remove(chunk);
-                    chunks.splice(i, 1);
-                    createChunk();
-                    score++;
-                    speed += 0.001;
-                    document.getElementById('ui').innerText = "SCORE: " + score;
-                }
-            });
-
-            // Collision
-            obstacles.forEach(obs => {
-                const p = new THREE.Vector3();
-                obs.getWorldPosition(p);
-                if(ball.position.distanceTo(p) < 0.9) resetGame();
-            });
-
-            camera.position.y = ball.position.y + 3.5;
-            camera.lookAt(ball.position);
-            renderer.render(scene, camera);
-        }
-
-        function resetGame() {
-            active = false;
-            alert("GAME OVER! SCORE: " + score);
-            location.reload();
-        }
-
-        init();
-    </script>
-</body>
-</html>
