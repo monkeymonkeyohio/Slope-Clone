@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>3D Slope Clone</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  #score {
+    position: absolute;
+    top: 10px; left: 10px;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 20px;
+    z-index: 1;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="score">Score: 0</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
+
+let scene, camera, renderer;
+let player, track;
+let obstacles = [];
+let clock = new THREE.Clock();
+let speed = 0.05;
+let playerX = 0;
+const maxX = 2.5;
+let score = 0;
+
+init();
+animate();
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+  camera.position.set(0, 5, 10);
+  camera.lookAt(0,0,0);
+
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(5,10,7);
+  scene.add(light);
+
+  const geometry = new THREE.SphereGeometry(0.4, 32, 32);
+  const material = new THREE.MeshStandardMaterial({color: 0x00ff00});
+  player = new THREE.Mesh(geometry, material);
+  player.position.y = 0.4;
+  scene.add(player);
+
+  const trackGeometry = new THREE.PlaneGeometry(5, 100, 10, 200);
+  trackGeometry.rotateX(-Math.PI/2);
+
+  const canvasTex = document.createElement('canvas');
+  canvasTex.width = 64;
+  canvasTex.height = 64;
+  const ctx = canvasTex.getContext('2d');
+  ctx.fillStyle = '#117711';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillStyle = '#22cc22';
+  ctx.fillRect(0, 0, 64, 32);
+  const texture = new THREE.CanvasTexture(canvasTex);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1, 50);
+
+  const trackMaterial = new THREE.MeshStandardMaterial({map: texture, side: THREE.DoubleSide});
+  track = new THREE.Mesh(trackGeometry, trackMaterial);
+  track.position.z = -45;
+  scene.add(track);
+
+  for(let i=0; i<30; i++){
+    addObstacle(i * -4 - 10);
+  }
+
+  window.addEventListener('resize', onWindowResize);
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+}
+
+function addObstacle(zPos){
+  const size = 0.6;
+  const geometry = new THREE.BoxGeometry(size, size, size);
+  const material = new THREE.MeshStandardMaterial({color: 0xff0000});
+  const box = new THREE.Mesh(geometry, material);
+  box.position.y = size/2;
+  box.position.z = zPos;
+  box.position.x = (Math.random() * 2 -1) * maxX;
+  scene.add(box);
+  obstacles.push(box);
+}
+
+let moveLeft = false;
+let moveRight = false;
+
+function onKeyDown(e){
+  if(e.key === 'ArrowLeft') moveLeft = true;
+  if(e.key === 'ArrowRight') moveRight = true;
+}
+
+function onKeyUp(e){
+  if(e.key === 'ArrowLeft') moveLeft = false;
+  if(e.key === 'ArrowRight') moveRight = false;
+}
+
+function onWindowResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  let delta = clock.getDelta();
+
+  if(moveLeft) playerX -= delta * 3;
+  if(moveRight) playerX += delta * 3;
+  playerX = Math.min(Math.max(playerX, -maxX), maxX);
+  player.position.x = playerX;
+
+  track.position.z += speed;
+  if(track.position.z > 0) track.position.z = -45;
+
+  for(let i=0; i<obstacles.length; i++){
+    obstacles[i].position.z += speed;
+    if(obstacles[i].position.z > 5){
+      obstacles[i].position.z = -150 + Math.random()*20;
+      obstacles[i].position.x = (Math.random() * 2 -1) * maxX;
+      score++;
+      document.getElementById('score').innerText = 'Score: ' + score;
+    }
+
+    let dx = player.position.x - obstacles[i].position.x;
+    let dz = player.position.z - obstacles[i].position.z;
+    if(Math.abs(dx) < 0.7 && Math.abs(dz) < 0.7){
+      alert('Game Over! Score: ' + score);
+      window.location.reload();
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+</script>
+</body>
+</html>
