@@ -105,17 +105,31 @@
             requestAnimationFrame(animate);
             if(!active) return;
 
-            // Player Physics
+            // 1. Horizontal Movement
             if(moveLeft) ball.position.x -= 0.15;
             if(moveRight) ball.position.x += 0.15;
             ball.position.x = Math.max(Math.min(ball.position.x, 3.8), -3.8);
             ball.rotation.x -= 0.15;
 
-            // Move Chunks
+            // 2. The "Sticky Floor" Logic (Raycasting)
+            // We shoot a ray from high above the ball straight down
+            const raycaster = new THREE.Raycaster(
+                new THREE.Vector3(ball.position.x, 10, ball.position.z), 
+                new THREE.Vector3(0, -1, 0)
+            );
+            
+            // Check which chunk the ball is currently over
+            const intersects = raycaster.intersectObjects(chunks, true);
+
+            if (intersects.length > 0) {
+                // Set ball y-position to the floor height + the ball's radius (0.5)
+                ball.position.y = intersects[0].point.y + 0.5;
+            }
+
+            // 3. Move Chunks
             chunks.forEach((chunk, index) => {
                 chunk.position.z += speed;
 
-                // Infinite Generation
                 if(chunk.position.z > 20) {
                     scene.remove(chunk);
                     chunks.splice(index, 1);
@@ -126,7 +140,7 @@
                 }
             });
 
-            // Collision Check
+            // 4. Collision Check
             obstacles.forEach(obs => {
                 const worldPos = new THREE.Vector3();
                 obs.getWorldPosition(worldPos);
@@ -137,7 +151,10 @@
                 }
             });
 
+            // Adjust camera to follow the ball's new height smoothly
+            camera.position.y = ball.position.y + 3.5;
             camera.lookAt(ball.position);
+            
             renderer.render(scene, camera);
         }
 
