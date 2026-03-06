@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Slope</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        #s { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; font-size: 30px; }
+        #m { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99; color: #0f0; }
+        button { padding: 20px; font-size: 20px; cursor: pointer; background: #0f0; border: none; }
+    </style>
+</head>
+<body>
+    <div id="s">Score: 0</div>
+    <div id="m">
+        <h1>SLOPE CLONE</h1>
+        <button id="b">START</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.min.js"></script>
+
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshPhongMaterial({color: 0x00ff00}));
+        ball.position.y = 0.5;
+        scene.add(ball);
+
+        const light = new THREE.PointLight(0xffffff, 1, 100);
+        light.position.set(10, 10, 10);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        const obstacles = [];
+        for(let i=0; i<20; i++) {
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshPhongMaterial({color: 0xff0000}));
+            obs.position.set((Math.random()-0.5)*8, 0.5, -i*15);
+            scene.add(obs);
+            obstacles.push(obs);
+        }
+
+        camera.position.set(0, 3, 7);
+        let left = false, right = false, active = false, score = 0;
+
+        document.getElementById('b').onclick = () => {
+            document.getElementById('m').style.display = 'none';
+            active = true;
+        };
+
+        window.onkeydown = (e) => {
+            if(e.key === "ArrowLeft") left = true;
+            if(e.key === "ArrowRight") right = true;
+        };
+        window.onkeyup = (e) => {
+            if(e.key === "ArrowLeft") left = false;
+            if(e.key === "ArrowRight") right = false;
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!active) return;
+
+            if(left) ball.position.x -= 0.15;
+            if(right) ball.position.x += 0.15;
+
+            obstacles.forEach(o => {
+                o.position.z += 0.5;
+                if(ball.position.distanceTo(o.position) < 0.8) location.reload();
+                if(o.position.z > 10) {
+                    o.position.z = -250;
+                    o.position.x = (Math.random()-0.5)*8;
+                    score++;
+                    document.getElementById('s').innerText = "Score: " + score;
+                }
+            });
+            camera.lookAt(ball.position);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
