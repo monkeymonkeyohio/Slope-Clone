@@ -3,20 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slope Clone Pro</title>
+    <title>Slope Clone Fixed</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-size: 32px; font-weight: bold; z-index: 10; text-shadow: 2px 2px #000; pointer-events: none; }
-        #menu { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: #0f0; }
-        button { padding: 15px 40px; font-size: 24px; background: #0f0; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 20px #0f0; transition: 0.2s; }
-        button:hover { background: #fff; transform: scale(1.1); }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-size: 32px; font-weight: bold; z-index: 10; pointer-events: none; }
+        #menu { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); 
+            display: flex; flex-direction: column; justify-content: center; 
+            align-items: center; z-index: 100; color: #0f0; 
+        }
+        #startBtn { 
+            padding: 20px 50px; font-size: 28px; background: #0f0; color: #000;
+            border: none; font-weight: bold; cursor: pointer; border-radius: 8px;
+            box-shadow: 0 0 20px #0f0;
+        }
+        #startBtn:hover { background: #fff; box-shadow: 0 0 30px #fff; }
     </style>
 </head>
 <body>
     <div id="ui">SCORE: 0</div>
     <div id="menu">
-        <h1 style="font-size: 60px; margin-bottom: 10px;">SLOPE</h1>
-        <p style="margin-bottom: 20px;">ARROWS or A/D to STEER</p>
+        <h1 style="font-size: 60px;">SLOPE</h1>
         <button id="startBtn">START GAME</button>
     </div>
 
@@ -29,5 +36,142 @@
         let moveLeft = false, moveRight = false;
         let lastChunkZ = 0, lastChunkY = 0;
 
+        // FORCE START LOGIC
+        window.onload = () => {
+            const btn = document.getElementById('startBtn');
+            btn.addEventListener('click', () => {
+                console.log("Button Clicked!");
+                document.getElementById('menu').style.display = 'none';
+                active = true;
+                // Ensures the game captures your arrow keys immediately
+                window.focus(); 
+            });
+            init();
+        };
+
         function init() {
             scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 10, 130);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0x404040));
+            const light = new THREE.PointLight(0x00ff00, 2, 60);
+            light.position.set(0, 10, 0);
+            scene.add(light);
+
+            const ballGeo = new THREE.SphereGeometry(0.5, 32, 32);
+            const ballMat = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.8 });
+            ball = new THREE.Mesh(ballGeo, ballMat);
+            ball.position.y = 2;
+            scene.add(ball);
+
+            for(let i=0; i<15; i++) createChunk();
+
+            window.addEventListener('keydown', (e) => {
+                if(e.key=="ArrowLeft" || e.key=="a") moveLeft=true; 
+                if(e.key=="ArrowRight" || e.key=="d") moveRight=true; 
+            });
+            window.addEventListener('keyup', (e) => {
+                if(e.key=="ArrowLeft" || e.key=="a") moveLeft=false; 
+                if(e.key=="ArrowRight" || e.key=="d") moveRight=false; 
+            });
+
+            animate();
+        }
+
+        function createChunk() {
+            const group = new THREE.Group();
+            const width = 8, length = 18;
+            const isRamp = Math.random() > 0.4;
+            const hasGap = Math.random() > 0.9;
+
+            const geo = new THREE.BoxGeometry(width, 1, length);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x080808 });
+            const platform = new THREE.Mesh(geo, mat);
+            
+            const edges = new THREE.EdgesGeometry(geo);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ff00 }));
+            platform.add(line);
+            group.add(platform);
+
+            group.position.z = lastChunkZ - length;
+            group.position.y = hasGap ? lastChunkY - 6 : lastChunkY - (Math.random() * 1.5);
+            
+            if (isRamp && !hasGap) {
+                group.rotation.x = -0.25;
+                group.position.y -= 2;
+            }
+
+            if(lastChunkZ < -40 && !hasGap) {
+                const obs = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 }));
+                obs.position.set((Math.random() - 0.5) * 6, 1.2, 0);
+                group.add(obs);
+                obstacles.push(obs);
+            }
+
+            scene.add(group);
+            chunks.push(group);
+            lastChunkZ -= length;
+            lastChunkY = group.position.y;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!active) return;
+
+            if(moveLeft) ball.position.x -= 0.22;
+            if(moveRight) ball.position.x += 0.22;
+            ball.position.x = Math.max(Math.min(ball.position.x, 3.8), -3.8);
+            ball.rotation.x -= 0.25;
+
+            const ray = new THREE.Raycaster(new THREE.Vector3(ball.position.x, ball.position.y + 5, ball.position.z), new THREE.Vector3(0, -1, 0));
+            const intersects = ray.intersectObjects(chunks, true);
+
+            if (intersects.length > 0) {
+                let targetY = intersects[0].point.y + 0.5;
+                ball.position.y = THREE.MathUtils.lerp(ball.position.y, targetY, 0.3);
+            } else {
+                ball.position.y -= 0.3;
+                if(ball.position.y < -15) {
+                    active = false;
+                    alert("GAME OVER! SCORE: " + score);
+                    location.reload();
+                }
+            }
+
+            chunks.forEach((chunk, i) => {
+                chunk.position.z += speed;
+                if(chunk.position.z > 30) {
+                    scene.remove(chunk);
+                    chunks.splice(i, 1);
+                    createChunk();
+                    score++;
+                    speed += 0.0015;
+                    document.getElementById('ui').innerText = "SCORE: " + score;
+                }
+            });
+
+            obstacles.forEach(obs => {
+                const p = new THREE.Vector3();
+                obs.getWorldPosition(p);
+                if(ball.position.distanceTo(p) < 1.1) {
+                    active = false;
+                    alert("CRASHED! SCORE: " + score);
+                    location.reload();
+                }
+            });
+
+            camera.position.x = ball.position.x * 0.4;
+            camera.position.y = ball.position.y + 2.8;
+            camera.position.z = 8;
+            camera.lookAt(ball.position.x, ball.position.y, ball.position.z - 20);
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
