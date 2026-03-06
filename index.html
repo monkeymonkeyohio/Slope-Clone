@@ -88,4 +88,65 @@
                 active = true;
             };
 
-            window.addEventListener('
+            window.addEventListener('resize', onResize);
+            animate();
+        }
+
+        function spawnObstacle(z) {
+            const size = Math.random() * 0.8 + 0.4;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            const mat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+            const box = new THREE.Mesh(geo, mat);
+            box.position.set((Math.random() - 0.5) * 8, size / 2, z);
+            scene.add(box);
+            obstacles.push(box);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!active) return;
+
+            // Movement Logic
+            if (moveLeft) ball.position.x -= 0.15;
+            if (moveRight) ball.position.x += 0.15;
+            ball.position.x = Math.max(Math.min(ball.position.x, 4.5), -4.5);
+            
+            // Rolling Animation
+            ball.rotation.x -= 0.15;
+
+            // Obstacle Movement & Collision
+            obstacles.forEach(obs => {
+                obs.position.z += speed;
+
+                // Collision Detection
+                const dist = ball.position.distanceTo(obs.position);
+                if (dist < 0.8) {
+                    active = false;
+                    alert("GAME OVER! SCORE: " + score);
+                    location.reload();
+                }
+
+                // Recycle Obstacles
+                if (obs.position.z > 10) {
+                    obs.position.z = -480;
+                    obs.position.x = (Math.random() - 0.5) * 8;
+                    score++;
+                    speed += 0.002;
+                    document.getElementById('ui').innerText = "SCORE: " + score;
+                }
+            });
+
+            camera.lookAt(ball.position);
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
